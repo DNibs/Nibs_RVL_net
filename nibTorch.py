@@ -86,6 +86,9 @@ class NeuralNetwork:
 
     def backward(self, target):
 
+        target = target.float()
+        # target = target.unsqueeze(0)
+        # target = target.t()
         # Calculate overall Error of forward pass
         error_vec = 0.5*((target - self.result)**2)
         self.error_total = tch.sum(error_vec)
