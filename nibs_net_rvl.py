@@ -108,7 +108,7 @@ class NibsNetRVL:
             train_error[i] = self.nibs_net_rvl.getError()
             print('train_err {}'.format(train_error[i]))
 
-            # # Validate Loop   todo: clean up the targets and measure criteria... avoid double-one-hot-encoding
+            # # Validate Loop
             # val_iter = 0
             # val_pass_iter = 0
             # val_error_sum = 0
@@ -137,9 +137,11 @@ class NibsNetRVL:
             # epoch_time[i] = end_time - start_time
             # print('epoch time {}'.format(epoch_time[i]))
 
-        # Test Loop   todo: clean up test code
+        # Test Loop
         test_iter = 0
         pass_iter = 0
+        actual = np.array([0, 0, 0])
+        pred = np.array([0, 0, 0])
 
         for i in range(0, len_data):
             test_iter += 1
@@ -154,9 +156,14 @@ class NibsNetRVL:
             if selection == target:
                 pass_iter += 1
 
+            actual[target] += 1
+            pred[selection] += 1
+
             print('Target: {}'.format(target))
             print('Guess: {}'.format(selection))
 
+        print(actual)
+        print(pred)
         # test accuracy
         accuracy = pass_iter / test_iter
         # print('train_err {}'.format(train_error))
