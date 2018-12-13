@@ -73,6 +73,11 @@ def main():
                                                shuffle=True,
                                                drop_last=True)
 
+    loader_test = torch.utils.data.DataLoader(dataset=dataset_train,
+                                               batch_size=1,
+                                               shuffle=True,
+                                               drop_last=True)
+
     net = NibsNetRVLPyTorch()
     net = net.float()
     loss_fn = nn.MSELoss()
@@ -97,10 +102,10 @@ def main():
             loss.backward()
             optimizer.step()
 
-            print('\rTrain Epoch: {} [{}/{} ({:.0f}%)]\tLoss for batch: {:.6f}'.format(
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss for batch: {:.6f}'.format(
                 i, batch_idx * len(data), len(loader_train.dataset),
                 100.0 * batch_idx / len(loader_train), loss.item()
-            ), end='')
+            ))
 
         net.eval()
         loss_epoch = 0
@@ -109,11 +114,24 @@ def main():
                 out = net(data.float())
                 loss = loss_fn(out, target.float())
                 loss_epoch += loss.item()
-                print('\rValidate Epoch: {} [{}/{} ({:.0f}%)]\tLoss for batch: {:.6f}'.format(
+                print('Validate Epoch: {} [{}/{} ({:.0f}%)]\tLoss for batch: {:.6f}'.format(
                     i, batch_idx * len(data), len(loader_train.dataset),
                            100.0 * batch_idx / len(loader_train), loss.item()
-                ), end='')
+                ))
 
+    # Build Confidence Matrix
+    confmat = np.zeros([3, 3])
+    with torch.no_grad():
+
+        for batch_idx, (data, target) in enumerate(loader_test):
+            out = net(data.float())
+            actual = torch.argmax(target)
+            predict = torch.argmax(out)
+
+            confmat[actual][predict] += 1
+
+    print('\n\nConfidence Matrix [actual x predicted]')
+    print(confmat)
 
 
 if __name__ == '__main__':
