@@ -142,6 +142,7 @@ class NibsNetRVL:
         pass_iter = 0
         actual = np.array([0, 0, 0])
         pred = np.array([0, 0, 0])
+        confmat = np.zeros([3, 3])
 
         for i in range(0, len_data):
             test_iter += 1
@@ -156,14 +157,14 @@ class NibsNetRVL:
             if selection == target:
                 pass_iter += 1
 
-            actual[target] += 1
-            pred[selection] += 1
+            confmat[selection][target] += 1
 
             print('Target: {}'.format(target))
             print('Guess: {}'.format(selection))
 
-        print(actual)
-        print(pred)
+        print('Confidence Matrix [actual x predicted]')
+        print(confmat)
+
         # test accuracy
         accuracy = pass_iter / test_iter
         # print('train_err {}'.format(train_error))
