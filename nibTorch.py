@@ -1,4 +1,4 @@
-# nibs_rvl_net.py
+# nibTorch.py
 # RVL Lab Meeting
 # Author: David Niblick
 # Date: 14DEC18
