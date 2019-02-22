@@ -10,22 +10,23 @@ import torch
 import torchvision
 import torch.nn as nn
 import torch.nn.functional as fn
+import matplotlib.pyplot as plt
 
 
 # Parameters
 batch_sz = 10
-init_learn_rt_adam = 0.002
+init_learn_rt_adam = 0.0001
 learn_rt_decay_epoch = 10
 wt_decay = 0.001355
 momentum = 0.9
-num_epochs = 20
+num_epochs = 150
 
 
 class NibsNetRVLPyTorch(nn.Module):
     def __init__(self):
         super(NibsNetRVLPyTorch, self).__init__()
-        self.fc1 = nn.Linear(3, 27)
-        self.fc2 = nn.Linear(27, 3)
+        self.fc1 = nn.Linear(3, 20)
+        self.fc2 = nn.Linear(20, 3)
 
     def forward(self, x):
         x = torch.tanh(self.fc1(x))
@@ -66,17 +67,16 @@ class CustomDataset(torch.utils.data.dataset.Dataset):
 def main():
     print('Welcome to RVL Neural-A-Thon!')
 
-    dataset_train = CustomDataset('test_30.csv')
+    dataset_train = CustomDataset('training_9000_strongly_overlapping.csv')
+    dataset_test = CustomDataset('test_30_strongly_overlapping.csv')
 
     loader_train = torch.utils.data.DataLoader(dataset=dataset_train,
                                                batch_size=batch_sz,
                                                shuffle=True,
                                                drop_last=True)
 
-    loader_test = torch.utils.data.DataLoader(dataset=dataset_train,
-                                               batch_size=1,
-                                               shuffle=True,
-                                               drop_last=True)
+    loader_test = torch.utils.data.DataLoader(dataset=dataset_test,
+                                               batch_size=1)
 
     net = NibsNetRVLPyTorch()
     net = net.float()
@@ -93,6 +93,7 @@ def main():
         epoch += 1
         net.train()
         loss_epoch = 0
+        print('')
 
         for batch_idx, (data, target) in enumerate(loader_train):
             optimizer.zero_grad()
@@ -102,37 +103,61 @@ def main():
             loss.backward()
             optimizer.step()
 
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss for batch: {:.6f}'.format(
-                i, batch_idx * len(data), len(loader_train.dataset),
-                100.0 * batch_idx / len(loader_train), loss.item()
-            ))
+            if batch_idx % 10 == 0:
+                print('\rTrain Epoch: {} [{}/{} ({:.0f}%)]\tLoss for batch: {:.6f}'.format(
+                    i, batch_idx * len(data), len(loader_train.dataset),
+                    100.0 * batch_idx / len(loader_train), loss.item()
+                ), end='')
+        train_loss.append(loss_epoch)
 
         net.eval()
         loss_epoch = 0
+        print('')
         with torch.no_grad():
             for batch_idx, (data, target) in enumerate(loader_train):
                 out = net(data.float())
                 loss = loss_fn(out, target.float())
                 loss_epoch += loss.item()
-                print('Validate Epoch: {} [{}/{} ({:.0f}%)]\tLoss for batch: {:.6f}'.format(
-                    i, batch_idx * len(data), len(loader_train.dataset),
-                           100.0 * batch_idx / len(loader_train), loss.item()
-                ))
+
+                if batch_idx % 10 == 0:
+                    print('\rValidate Epoch: {} [{}/{} ({:.0f}%)]\tLoss for batch: {:.6f}'.format(
+                        i, batch_idx * len(data), len(loader_train.dataset),
+                               100.0 * batch_idx / len(loader_train), loss.item()
+                    ), end='')
+            val_loss.append(loss_epoch)
 
     # Build Confidence Matrix
     confmat = np.zeros([3, 3])
+    pred_correct = 0
+    total = 0
     with torch.no_grad():
 
         for batch_idx, (data, target) in enumerate(loader_test):
             out = net(data.float())
             actual = torch.argmax(target)
             predict = torch.argmax(out)
-
+            total += 1
+            if actual == predict:
+                pred_correct += 1
             confmat[actual][predict] += 1
 
+    accuracy = pred_correct / total * 100
+    print('\n\nAccuracy: {}'.format(pred_correct / total * 100))
     print('\n\nConfidence Matrix [actual x predicted]')
     print(confmat)
 
+    # plot results, save to file
+    plt.figure(0)
+    plt.plot(train_loss)
+
+    plt.plot(val_loss)
+    plt.ylabel('Error')
+    plt.xlabel('Epochs')
+    plt.legend(['Training', 'Validation'])
+    plt.title('Batch = {}, eta = {}, Test Acc = {}'.format(batch_sz, init_learn_rt_adam, accuracy))
+    plt.suptitle('Validate and Training Error')
+    plt.savefig('my_err_b25_eta25')
+    plt.show()
 
 if __name__ == '__main__':
     main()

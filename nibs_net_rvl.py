@@ -25,9 +25,9 @@ class NibsNetRVL:
     def __init__(self):
         #   local variables and hyperparameters
         self.error_arr = np.zeros(1)
-        self.eta = 0.005
+        self.eta = 0.001
         self.batch_size = 25
-        self.epochsN = 100
+        self.epochsN = 150
 
         # Select as False if you want to use gpu
         self.no_cuda = True
@@ -36,7 +36,7 @@ class NibsNetRVL:
         self.device = torch.device("cuda" if self.use_cuda else "cpu")
 
         # architecture *need 3 or 4 hidden layers, but don't do more*
-        self.nibs_net_rvl = nn.NeuralNetwork([3, 20, 3], no_cuda=self.no_cuda)
+        self.nibs_net_rvl = nn.NeuralNetwork([3, 5, 3], no_cuda=self.no_cuda)
 
     # forward takes in one image (as a 28*28 tensor) and predicts class
     def forward(self, in_img):
@@ -52,50 +52,71 @@ class NibsNetRVL:
 
         # download data
         # Read CSV file
-        with open('test_30.csv', newline='') as csvfile:
+        with open('training_9000_strongly_overlapping.csv', newline='') as csvfile:
             file_data = list(csv.reader(csvfile))
 
         # Parse Data to np array
-        myFile = np.genfromtxt('test_30.csv', delimiter=',')
-        data_example = myFile[1:, 2:]
+        myFile = np.genfromtxt('training_9000_strongly_overlapping.csv', delimiter=',')
+        data_train = myFile[1:, 2:]
 
         # One-Hot encoding for targets (of three classes)
-        target_example = np.zeros([len(file_data) - 1, 3])
+        target_train = np.zeros([len(file_data) - 1, 3])
         for i in range(1, len(file_data)):
             if file_data[i][1] == 'c1':
-                target_example[i - 1, 0] = 1
+                target_train[i - 1, 0] = 1
             elif file_data[i][1] == 'c2':
-                target_example[i - 1, 1] = 1
+                target_train[i - 1, 1] = 1
             elif file_data[i][1] == 'c3':
-                target_example[i - 1, 2] = 1
+                target_train[i - 1, 2] = 1
 
-        data_example = torch.from_numpy(data_example)
-        target_example = torch.from_numpy(target_example)
+        data_train = torch.from_numpy(data_train)
+        target_train = torch.from_numpy(target_train)
         # print(np.shape(data_example))
         # print(np.shape(target_example))
 
+        with open('test_300_strongly_overlapping.csv', newline='') as csvfile:
+            file_data = list(csv.reader(csvfile))
+
+        # Parse Data to np array
+        myFile = np.genfromtxt('test_300_strongly_overlapping.csv', delimiter=',')
+        data_test = myFile[1:, 2:]
+
+        # One-Hot encoding for targets (of three classes)
+        target_test = np.zeros([len(file_data) - 1, 3])
+        for i in range(1, len(file_data)):
+            if file_data[i][1] == 'c1':
+                target_test[i - 1, 0] = 1
+            elif file_data[i][1] == 'c2':
+                target_test[i - 1, 1] = 1
+            elif file_data[i][1] == 'c3':
+                target_test[i - 1, 2] = 1
+
+        data_test = torch.from_numpy(data_test)
+        target_test = torch.from_numpy(target_test)
+
         # Find number of training batches
-        batchN = int(len(data_example) / self.batch_size)
+        batchN = int(len(data_train) / self.batch_size)
 
         # Create arrays for holding error, accuracy
         train_error = np.zeros(self.epochsN)
         validate_error = np.zeros(self.epochsN)
         validate_accuracy = np.zeros(self.epochsN)
         epoch_time = np.zeros(self.epochsN)
-        len_data = len(data_example)
+        len_train = len(data_train)
+        len_test = len(data_test)
 
         for i in range(0, self.epochsN):
             print('epoch {}'.format(i))
             start_time = time.time()
 
             # Train loop
-            for j in range(0, len_data):
+            for j in range(0, len_train):
                 # flatten each image, then forward pass
-                data = data_example[j].to(self.device).unsqueeze(0)
+                data = data_train[j].to(self.device).unsqueeze(0)
                 res = self.nibs_net_rvl.forward(data)
 
                 # onehot encode of target, then forward pass
-                target_onehot = target_example[j].unsqueeze(1)
+                target_onehot = target_train[j].unsqueeze(1)
                 # target_onehot = target_onehot.t()
                 target_onehot = target_onehot.to(self.device)
 
@@ -108,35 +129,6 @@ class NibsNetRVL:
             train_error[i] = self.nibs_net_rvl.getError()
             print('train_err {}'.format(train_error[i]))
 
-            # # Validate Loop
-            # val_iter = 0
-            # val_pass_iter = 0
-            # val_error_sum = 0
-            # for j in range(0, len_data):
-            #     val_iter += 1
-            #     data = data_example[j].to(self.device)
-            #     target = target_example[i].to(self.device)
-            #     res = self.nibs_net_rvl.forward(data)
-            #     selection = torch.argmax(res, dim=0).to(self.device)
-            #
-            #     if torch.sum(selection - target) < 1:
-            #         val_pass_iter += 1
-            #
-            #     # One hot encode of target for error measurement
-            #     target_onehot = torch.eye(10, dtype=torch.float)[target]
-            #     target_onehot = torch.t(target_onehot).to(self.device)
-            #     error_vec = 0.5 * ((target_onehot - res) ** 2)
-            #     val_error_sum += torch.sum(error_vec)
-            # validate_error[i] = val_error_sum / (val_iter * self.batch_size)
-            # print('val_err {}'.format(validate_error[i]))
-            #
-            # validate_accuracy[i] = val_pass_iter / val_iter
-            # print('val_acc {}'.format(validate_accuracy[i]))
-            #
-            # end_time = time.time()
-            # epoch_time[i] = end_time - start_time
-            # print('epoch time {}'.format(epoch_time[i]))
-
         # Test Loop
         test_iter = 0
         pass_iter = 0
@@ -144,15 +136,15 @@ class NibsNetRVL:
         pred = np.array([0, 0, 0])
         confmat = np.zeros([3, 3])
 
-        for i in range(0, len_data):
+        for i in range(0, len_test):
             test_iter += 1
-            data = data_example[i].unsqueeze(0).to(self.device)
+            data = data_test[i].unsqueeze(0).to(self.device)
             res = self.nibs_net_rvl.forward(data)
-            target = target_example[i].to(self.device)
+            target = target_test[i].to(self.device)
             # print('Target: {}'.format(target))
             # print('Guess: {}'.format(res))
 
-            target = torch.argmax(target_example[i]).to(self.device)
+            target = torch.argmax(target_test[i]).to(self.device)
             selection = torch.argmax(res)
             if selection == target:
                 pass_iter += 1
@@ -177,7 +169,7 @@ class NibsNetRVL:
         plt.figure(0)
         plt.plot(train_error)
 
-        plt.plot(validate_error)
+        # plt.plot(validate_error)
         plt.ylabel('Error')
         plt.xlabel('Epochs')
         plt.legend(['Training', 'Validation'])
